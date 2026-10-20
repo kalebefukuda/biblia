@@ -9,3 +9,8 @@ xcuserdata/
 # Textos bíblicos têm direitos autorais (ARA/NAA © SBB, NVI © Biblica).
 # Ficam só na máquina e no aparelho, nunca no repositório.
 Versoes/
+
+# O repositório é público: nenhum JSON solto entra (versão baixada, cópia de
+# segurança com notas pessoais). Só os Contents.json dos catálogos de imagem.
+*.json
+!Contents.json
