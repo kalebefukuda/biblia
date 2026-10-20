@@ -63,9 +63,14 @@ struct ChapterPage: View {
                 try? await Task.sleep(for: .milliseconds(250))
                 withAnimation { proxy.scrollTo(target.verse, anchor: .top) }
                 flashVerse = target.verse
+                // Limpar o pedido muda o id deste .task e cancela qualquer espera daqui
+                // em diante; por isso o apagar do destaque roda numa Task própria.
                 app.pendingVerse = nil
-                try? await Task.sleep(for: .seconds(1.6))
-                withAnimation(.easeOut(duration: 0.6)) { flashVerse = nil }
+                Task {
+                    try? await Task.sleep(for: .seconds(1.6))
+                    guard flashVerse == target.verse else { return }
+                    withAnimation(.easeOut(duration: 0.6)) { flashVerse = nil }
+                }
             }
         }
     }
