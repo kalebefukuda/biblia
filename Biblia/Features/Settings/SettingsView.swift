@@ -31,19 +31,6 @@ struct SettingsView: View {
                 aboutSection
             }
             .navigationTitle("Ajustes")
-            .fileImporter(isPresented: $importingVersion, allowedContentTypes: [.json]) { result in
-                Task {
-                    do {
-                        try await app.install(from: result.get())
-                        message = "Versão importada."
-                    } catch {
-                        message = error.localizedDescription
-                    }
-                }
-            }
-            .fileExporter(isPresented: $exportingBackup, document: backupDocument, contentType: .json, defaultFilename: backupFileName) { result in
-                if case .failure(let error) = result { message = error.localizedDescription }
-            }
             .alert("Bíblia", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
                 Button("OK") { message = nil }
             } message: {
@@ -89,10 +76,22 @@ struct SettingsView: View {
                     Button("Remover", role: .destructive) { removing = version }
                 }
             }
+            // Cada seletor de arquivo fica preso ao próprio botão: vários na mesma view
+            // podem fazer só um deles abrir.
             Button {
                 importingVersion = true
             } label: {
                 Label("Importar versão", systemImage: "square.and.arrow.down")
+            }
+            .fileImporter(isPresented: $importingVersion, allowedContentTypes: [.json]) { result in
+                Task {
+                    do {
+                        try await app.install(from: result.get())
+                        message = "Versão importada."
+                    } catch {
+                        message = error.localizedDescription
+                    }
+                }
             }
             ForEach(app.versions.inboxMessages, id: \.self) { line in
                 Text(line).font(.caption).foregroundStyle(.secondary)
@@ -154,6 +153,9 @@ struct SettingsView: View {
                 }
             } label: {
                 Label("Exportar cópia de segurança", systemImage: "square.and.arrow.up")
+            }
+            .fileExporter(isPresented: $exportingBackup, document: backupDocument, contentType: .json, defaultFilename: backupFileName) { result in
+                if case .failure(let error) = result { message = error.localizedDescription }
             }
             Button {
                 importingBackup = true
