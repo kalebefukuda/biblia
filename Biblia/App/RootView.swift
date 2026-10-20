@@ -32,13 +32,35 @@ struct RootView: View {
         }
         .preferredColorScheme(ReaderTheme(rawValue: themeRaw)?.colorScheme)
         .task {
-            app.onReadingChanged = { store in ReadingSync.refresh(store) }
+            app.onReadingChanged = { [app] store in ReadingSync.refresh(store, text: app.text) }
             await app.refreshVersions()
+            ReadingSync.refresh(BibleStore(context: context), text: app.text)
         }
+        .onChange(of: app.text?.id) { _, _ in
+            ReadingSync.refresh(BibleStore(context: context), text: app.text)
+        }
+        .onOpenURL(perform: handle)
         .onChange(of: scenePhase) { _, phase in
             guard phase == .active else { return }
             Task { await app.refreshVersions() }
-            ReadingSync.refresh(BibleStore(context: context))
+            ReadingSync.refresh(BibleStore(context: context), text: app.text)
+        }
+    }
+
+    /// Links do widget: biblia://progresso e biblia://versiculo/43.3.16.
+    /// A URL vem de fora do app, então só aceita referências válidas do cânon.
+    private func handle(_ url: URL) {
+        guard url.scheme == "biblia" else { return }
+        switch url.host() {
+        case "progresso":
+            app.tab = .progresso
+        case "versiculo":
+            let key = url.lastPathComponent
+            if let ref = VerseRef(key: key), Canon.isValid(ref.chapterRef), ref.verse >= 1 {
+                app.open(ref)
+            }
+        default:
+            break
         }
     }
 }
