@@ -10,6 +10,8 @@ final class AppState {
     var tab: AppTab = .ler
     private(set) var text: BibleText?
     private(set) var loadError: String?
+    /// Índice de busca da versão atual (montado em segundo plano).
+    private(set) var searchIndex: SearchIndex?
 
     /// Capítulo aberto no leitor.
     var position: ChapterRef {
@@ -79,8 +81,11 @@ final class AppState {
         }
         if text?.id == id { return }
         do {
-            text = try await versions.load(id)
+            let loaded = try await versions.load(id)
+            text = loaded
             loadError = nil
+            searchIndex = nil
+            searchIndex = await Task.detached(priority: .utility) { SearchIndex(text: loaded) }.value
         } catch {
             text = nil
             loadError = error.localizedDescription
