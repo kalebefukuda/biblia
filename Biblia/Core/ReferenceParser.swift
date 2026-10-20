@@ -24,6 +24,8 @@ enum ReferenceParser {
     )
 
     static func parse(_ input: String) -> ParsedReference? {
+        // Referências reais são curtas; limitar evita trabalho desnecessário com texto colado.
+        guard input.count <= 60 else { return nil }
         let range = NSRange(input.startIndex..., in: input)
         guard let match = pattern.firstMatch(in: input, range: range) else { return nil }
 

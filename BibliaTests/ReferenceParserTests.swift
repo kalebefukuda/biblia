@@ -27,7 +27,7 @@ struct ReferenceParserTests {
         #expect(ReferenceParser.parse(input) == ParsedReference(book: book, chapter: chapter, verse: verse, verseEnd: verseEnd))
     }
 
-    @Test(arguments: ["", "3", "xyz 1", "Gn 51", "Mt 5:12-3", "amor", "deus", "fi 1"])
+    @Test(arguments: ["", "3", "xyz 1", "Gn 51", "Mt 5:12-3", "amor", "deus", "fi 1", String(repeating: "a", count: 500) + " 1"])
     func rejectsInvalid(input: String) {
         #expect(ReferenceParser.parse(input) == nil)
     }
