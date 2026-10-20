@@ -16,7 +16,8 @@ struct WidgetSnapshot: Codable, Equatable, Sendable {
 
     static let empty = WidgetSnapshot(counts: [:], verses: [:], updatedAt: .distantPast)
 
-    static var url: URL { AppGroup.containerURL.appendingPathComponent("widget.json") }
+    static let fileName = "widget.json"
+    static var url: URL { AppGroup.containerURL.appendingPathComponent(fileName) }
 
     static func load(from url: URL = url) -> WidgetSnapshot {
         guard let data = try? Data(contentsOf: url),

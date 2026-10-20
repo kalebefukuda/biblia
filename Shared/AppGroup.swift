@@ -16,6 +16,11 @@ enum AppGroup {
         return fallback
     }
 
+    /// Onde o app guarda tudo quando não há App Group.
+    static var legacyURL: URL {
+        FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+    }
+
     static var isAvailable: Bool {
         FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: id) != nil
     }

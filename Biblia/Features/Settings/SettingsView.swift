@@ -20,10 +20,12 @@ struct SettingsView: View {
     @State private var message: String?
     @State private var removing: VersionInfo?
     @State private var notificationsDenied = false
+    @State private var confirmingReset = false
 
     var body: some View {
         NavigationStack {
             Form {
+                if app.storageFailed { storageSection }
                 versionsSection
                 readingSection
                 reminderSection
@@ -162,6 +164,8 @@ struct SettingsView: View {
             } label: {
                 Label("Restaurar cópia", systemImage: "arrow.counterclockwise")
             }
+            // Com o banco em memória a restauração sumiria ao fechar o app.
+            .disabled(app.storageFailed)
             .fileImporter(isPresented: $importingBackup, allowedContentTypes: [.json]) { result in
                 restoreBackup(result)
             }
@@ -169,6 +173,23 @@ struct SettingsView: View {
             Text("Cópia de segurança")
         } footer: {
             Text("Guarda destaques, notas, leituras e planos num arquivo. Sem iCloud, faça uma cópia de vez em quando e salve no Arquivos ou no seu Mac.")
+        }
+    }
+
+    private var storageSection: some View {
+        Section {
+            Label("Seus dados não puderam ser abertos. Nada do que você fizer agora será salvo.", systemImage: "exclamationmark.triangle.fill")
+                .foregroundStyle(.orange)
+            Button("Guardar dados ilegíveis e recomeçar", role: .destructive) { confirmingReset = true }
+                .confirmationDialog("Recomeçar o armazenamento?", isPresented: $confirmingReset, titleVisibility: .visible) {
+                    Button("Guardar e recomeçar", role: .destructive) { quarantineStore() }
+                } message: {
+                    Text("Os arquivos atuais são renomeados (não apagados). Depois, feche e abra o app e use Restaurar cópia.")
+                }
+        } header: {
+            Text("Armazenamento")
+        } footer: {
+            Text("Primeiro tente fechar o app pelo seletor de apps e abrir de novo. Não apague sua cópia de segurança.")
         }
     }
 
@@ -216,6 +237,17 @@ struct SettingsView: View {
         let status = await UNUserNotificationCenter.current().notificationSettings().authorizationStatus
         notificationsDenied = status == .denied
         if status == .denied { reminderEnabled = false }
+    }
+
+    private func quarantineStore() {
+        do {
+            let moved = try StorageMaintenance.quarantineStore(in: AppGroup.containerURL)
+            message = moved.isEmpty
+                ? "Nenhum arquivo de dados encontrado. Feche e abra o app."
+                : "Pronto. Feche o app pelo seletor de apps, abra de novo e use Restaurar cópia."
+        } catch {
+            message = error.localizedDescription
+        }
     }
 
     private func restoreBackup(_ result: Result<URL, Error>) {

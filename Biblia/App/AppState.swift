@@ -12,6 +12,9 @@ final class AppState {
     private(set) var loadError: String?
     /// Índice de busca da versão atual (montado em segundo plano).
     private(set) var searchIndex: SearchIndex?
+    /// O banco local não abriu: o app roda em memória e nada é salvo.
+    var storageFailed = false
+    var storageWarningSeen = false
 
     /// Capítulo aberto no leitor.
     var position: ChapterRef {
@@ -33,7 +36,7 @@ final class AppState {
 
     @ObservationIgnored private let defaults: UserDefaults
 
-    private enum Keys {
+    enum Keys {
         static let book = "posicaoLivro"
         static let chapter = "posicaoCapitulo"
         static let version = "versaoAtual"

@@ -86,6 +86,9 @@ final class PlanEnrollment {
 }
 
 enum Persistence {
+    static let storeName = "Biblia.store"
+    /// O SQLite do SwiftData grava o banco em três arquivos.
+    static let storeFiles = [storeName, storeName + "-shm", storeName + "-wal"]
     static let schema = Schema([VerseMark.self, ReadingEntry.self, PlanEnrollment.self])
 
     static func makeContainer(inMemory: Bool = false) throws -> ModelContainer {
@@ -93,7 +96,7 @@ enum Persistence {
         if inMemory {
             config = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         } else {
-            let url = AppGroup.containerURL.appendingPathComponent("Biblia.store")
+            let url = AppGroup.containerURL.appendingPathComponent(storeName)
             config = ModelConfiguration(schema: schema, url: url)
         }
         return try ModelContainer(for: schema, configurations: [config])
