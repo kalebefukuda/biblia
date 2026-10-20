@@ -1,0 +1,11 @@
+# Xcode / XcodeGen (o projeto é gerado a partir do project.yml)
+*.xcodeproj/
+DerivedData/
+build/
+xcuserdata/
+*.xcuserstate
+.DS_Store
+
+# Textos bíblicos têm direitos autorais (ARA/NAA © SBB, NVI © Biblica).
+# Ficam só na máquina e no aparelho, nunca no repositório.
+Versoes/
