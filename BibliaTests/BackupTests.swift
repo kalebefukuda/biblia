@@ -39,6 +39,48 @@ struct BackupTests {
         #expect(try container.mainContext.fetch(FetchDescriptor<VerseMark>()).count == 1)
     }
 
+    @Test func restoreKeepsNewerLocalMarkAndOverwritesOlder() throws {
+        let container = try Persistence.makeContainer(inMemory: true)
+        let store = BibleStore(context: container.mainContext)
+        let newer = VerseRef(book: 1, chapter: 1, verse: 1), older = VerseRef(book: 1, chapter: 1, verse: 2)
+        store.setColor(.azul, for: [newer, older])
+        store.mark(for: older)?.updatedAt = .distantPast
+
+        let backup = Backup(
+            exportedAt: .now,
+            marks: [
+                Backup.Mark(book: 1, chapter: 1, verse: 1, color: "rosa", underline: false, saved: false, note: nil, updatedAt: Date(timeIntervalSince1970: 0)),
+                Backup.Mark(book: 1, chapter: 1, verse: 2, color: "rosa", underline: false, saved: false, note: nil, updatedAt: .now),
+            ],
+            readings: [],
+            plans: []
+        )
+        BackupService.restore(backup, into: container.mainContext)
+        #expect(store.mark(for: newer)?.color == .azul)
+        #expect(store.mark(for: older)?.color == .rosa)
+    }
+
+    @Test func restoreDeduplicatesReadingsInsideTheFile() throws {
+        let container = try Persistence.makeContainer(inMemory: true)
+        let reading = Backup.Reading(dayKey: "2026-10-20", book: 1, chapter: 1, readAt: .now)
+        let backup = Backup(exportedAt: .now, marks: [], readings: [reading, reading], plans: [])
+        let counts = BackupService.restore(backup, into: container.mainContext)
+        #expect(counts.readings == 1)
+        #expect(BibleStore(context: container.mainContext).allEntries().count == 1)
+    }
+
+    @Test func longNotesSurviveSaveAndRestore() throws {
+        let note = String(repeating: "Estudo de Romanos 8. ", count: 700) // ~14 mil caracteres
+        let source = try Persistence.makeContainer(inMemory: true)
+        BibleStore(context: source.mainContext).setNote(note, for: VerseRef(book: 45, chapter: 8, verse: 28))
+        let data = try BackupService.encode(BackupService.makeBackup(context: source.mainContext))
+
+        let target = try Persistence.makeContainer(inMemory: true)
+        BackupService.restore(try BackupService.decode(data), into: target.mainContext)
+        let restored = BibleStore(context: target.mainContext).mark(for: VerseRef(book: 45, chapter: 8, verse: 28))?.note
+        #expect(restored == note.trimmingCharacters(in: .whitespacesAndNewlines))
+    }
+
     @Test func rejectsForeignFiles() {
         #expect(throws: BackupError.self) { try BackupService.decode(Data(#"{"foo": 1}"#.utf8)) }
         #expect(throws: BackupError.self) { try BackupService.decode(Data(count: BackupService.maxSize + 1)) }

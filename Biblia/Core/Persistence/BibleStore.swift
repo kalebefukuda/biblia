@@ -5,6 +5,9 @@ import SwiftData
 /// toda mudança passa por aqui para manter as regras num lugar só.
 @MainActor
 struct BibleStore {
+    /// Mesmo limite ao salvar e ao restaurar cópia, para nada ser cortado só num dos lados.
+    static let maxNoteLength = 100_000
+
     let context: ModelContext
     var calendar: Calendar = .current
 
@@ -61,9 +64,26 @@ struct BibleStore {
 
     func setNote(_ note: String?, for ref: VerseRef) {
         let mark = upsert(ref)
-        let trimmed = note?.trimmingCharacters(in: .whitespacesAndNewlines)
-        mark.note = (trimmed?.isEmpty ?? true) ? nil : trimmed
+        let trimmed = note?.trimmingCharacters(in: .whitespacesAndNewlines).prefix(Self.maxNoteLength)
+        mark.note = (trimmed?.isEmpty ?? true) ? nil : trimmed.map(String.init)
         finish(mark)
+        save()
+    }
+
+    /// Tira cor e sublinhado, mantendo salvo e nota.
+    func clearHighlight(for refs: [VerseRef]) {
+        for ref in refs {
+            let mark = upsert(ref)
+            mark.color = nil
+            mark.underline = false
+            finish(mark)
+        }
+        save()
+    }
+
+    /// Apaga tudo do versículo (cor, sublinhado, salvo e nota).
+    func deleteMark(_ mark: VerseMark) {
+        context.delete(mark)
         save()
     }
 

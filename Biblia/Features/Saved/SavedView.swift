@@ -12,6 +12,9 @@ struct SavedView: View {
     @Query(sort: \VerseMark.updatedAt, order: .reverse) private var marks: [VerseMark]
     @State private var filter: Filter = .todos
     @State private var color: HighlightColor?
+    @State private var confirming: VerseMark?
+
+    private var store: BibleStore { BibleStore(context: context) }
 
     private var filtered: [VerseMark] {
         marks.filter { mark in
@@ -60,12 +63,7 @@ struct SavedView: View {
                     ForEach(filtered) { mark in
                         Button { app.open(mark.ref) } label: { SavedRow(mark: mark, text: app.text) }
                             .buttonStyle(.plain)
-                            .swipeActions {
-                                Button("Apagar", role: .destructive) {
-                                    context.delete(mark)
-                                    try? context.save()
-                                }
-                            }
+                            .swipeActions(allowsFullSwipe: false) { swipeAction(for: mark) }
                     }
                 }
             }
@@ -79,6 +77,41 @@ struct SavedView: View {
                 }
             }
             .navigationTitle("Salvos")
+            .confirmationDialog(
+                confirming.map { "Apagar a nota de \($0.ref.title)?" } ?? "",
+                isPresented: Binding(get: { confirming != nil }, set: { if !$0 { confirming = nil } }),
+                titleVisibility: .visible
+            ) {
+                if let mark = confirming {
+                    Button("Apagar só a nota", role: .destructive) { store.setNote(nil, for: mark.ref) }
+                    if filter == .todos {
+                        Button("Apagar tudo do versículo", role: .destructive) { store.deleteMark(mark) }
+                    }
+                }
+            } message: {
+                Text("A nota não pode ser recuperada, a não ser por uma cópia de segurança.")
+            }
+        }
+    }
+
+    /// Cada filtro remove só o que ele mostra; apagar uma nota sempre pede confirmação.
+    @ViewBuilder
+    private func swipeAction(for mark: VerseMark) -> some View {
+        switch filter {
+        case .salvos:
+            Button("Tirar dos salvos") { store.toggleSaved(for: [mark.ref]) }
+                .tint(.orange)
+        case .destaques:
+            Button("Tirar destaque") { store.clearHighlight(for: [mark.ref]) }
+                .tint(.orange)
+        case .notas:
+            Button("Apagar nota") { confirming = mark }
+                .tint(.red)
+        case .todos:
+            Button("Apagar") {
+                if mark.hasNote { confirming = mark } else { store.deleteMark(mark) }
+            }
+            .tint(.red)
         }
     }
 }

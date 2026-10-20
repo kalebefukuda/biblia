@@ -45,7 +45,6 @@ enum BackupError: LocalizedError {
 @MainActor
 enum BackupService {
     static let maxSize = 20 * 1_048_576
-    static let maxNoteLength = 10_000
 
     static func makeBackup(context: ModelContext) -> Backup {
         let marks = (try? context.fetch(FetchDescriptor<VerseMark>())) ?? []
@@ -91,16 +90,17 @@ enum BackupService {
             mark.colorRaw = item.color.flatMap(HighlightColor.init(rawValue:))?.rawValue
             mark.underline = item.underline
             mark.saved = item.saved
-            mark.note = item.note.map { String($0.prefix(maxNoteLength)) }
+            mark.note = item.note.map { String($0.prefix(BibleStore.maxNoteLength)) }
             mark.updatedAt = item.updatedAt
             if mark.isEmpty { context.delete(mark) } else { counts.marks += 1 }
         }
 
-        let existingReadings = Set(store.allEntries().map { "\($0.dayKey)|\($0.book)|\($0.chapter)" })
+        var existingReadings = Set(store.allEntries().map { "\($0.dayKey)|\($0.book)|\($0.chapter)" })
         for item in backup.readings {
             let ref = ChapterRef(book: item.book, chapter: item.chapter)
+            let key = "\(item.dayKey)|\(item.book)|\(item.chapter)"
             guard Canon.isValid(ref), DayKey.date(from: item.dayKey) != nil,
-                  !existingReadings.contains("\(item.dayKey)|\(item.book)|\(item.chapter)") else { continue }
+                  existingReadings.insert(key).inserted else { continue }
             let entry = ReadingEntry(chapter: ref, at: item.readAt)
             entry.dayKey = item.dayKey
             context.insert(entry)
