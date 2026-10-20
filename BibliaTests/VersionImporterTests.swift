@@ -76,13 +76,35 @@ struct VersionImporterTests {
         try TestSupport.formatA(TestSupport.syntheticBooks()).write(to: inbox.appendingPathComponent("teste.json"))
         try Data("ruim".utf8).write(to: inbox.appendingPathComponent("ruim.json"))
 
-        let store = await VersionStore(directory: root.appendingPathComponent("Versoes"), inbox: inbox)
+        let store = await VersionStore(directory: root.appendingPathComponent("Versoes"), inbox: inbox, defaults: UserDefaults(suiteName: UUID().uuidString)!)
         await store.importInbox()
         let ids = await store.installed.map(\.id)
         #expect(ids == ["TESTE"])
         #expect(await store.inboxMessages.count == 2)
         let text = try await store.load("TESTE")
         #expect(text.books.count == 66)
+    }
+
+    @MainActor
+    @Test func inboxIgnoresBackupsAndDoesNotRepeatFailures() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        let inbox = root.appendingPathComponent("inbox")
+        try FileManager.default.createDirectory(at: inbox, withIntermediateDirectories: true)
+        let backupData = try BackupService.encode(Backup(exportedAt: .now, marks: [], readings: [], plans: []))
+        try backupData.write(to: inbox.appendingPathComponent("biblia-backup-2026-10-20.json"))
+        try backupData.write(to: inbox.appendingPathComponent("copia.json"))
+        try Data("ruim".utf8).write(to: inbox.appendingPathComponent("ruim.json"))
+
+        let store = VersionStore(directory: root.appendingPathComponent("Versoes"), inbox: inbox, defaults: UserDefaults(suiteName: UUID().uuidString)!)
+        store.importInbox()
+        #expect(store.inboxMessages.count == 1)
+        #expect(store.inboxMessages.first?.hasPrefix("ruim.json") == true)
+        #expect(store.installed.isEmpty)
+
+        let before = store.inboxMessages
+        store.importInbox()
+        #expect(store.inboxMessages == before)
+        #expect(FileManager.default.fileExists(atPath: inbox.appendingPathComponent("biblia-backup-2026-10-20.json").path))
     }
 
     /// Só roda de verdade se você colocou arquivos em Versoes/ (fora do git).

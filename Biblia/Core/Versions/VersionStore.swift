@@ -12,10 +12,14 @@ final class VersionStore {
     @ObservationIgnored private var cache: [String: BibleText] = [:]
     @ObservationIgnored private let directory: URL
     @ObservationIgnored private let inbox: URL
+    @ObservationIgnored private let defaults: UserDefaults
 
-    init(directory: URL? = nil, inbox: URL? = nil) {
+    nonisolated static let ignoredInboxKey = "inboxIgnorados"
+
+    init(directory: URL? = nil, inbox: URL? = nil, defaults: UserDefaults = AppGroup.defaults) {
         self.directory = directory ?? AppGroup.containerURL.appendingPathComponent("Versoes", isDirectory: true)
         self.inbox = inbox ?? FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+        self.defaults = defaults
         try? FileManager.default.createDirectory(at: self.directory, withIntermediateDirectories: true)
         refresh()
     }
@@ -53,19 +57,43 @@ final class VersionStore {
     }
 
     /// Importa JSONs deixados na pasta Documentos do app (via Finder ou app Arquivos).
+    /// Cópias de segurança salvas ali são ignoradas, e um arquivo que já falhou só
+    /// é tentado de novo se mudar (nome, tamanho ou data), para o erro não voltar a cada abertura.
     func importInbox() {
-        let files = (try? FileManager.default.contentsOfDirectory(at: inbox, includingPropertiesForKeys: nil)) ?? []
+        let keys: [URLResourceKey] = [.fileSizeKey, .contentModificationDateKey]
+        let files = (try? FileManager.default.contentsOfDirectory(at: inbox, includingPropertiesForKeys: keys)) ?? []
+        var ignored = Set(defaults.stringArray(forKey: Self.ignoredInboxKey) ?? [])
         var messages: [String] = []
-        for file in files where file.pathExtension.lowercased() == "json" {
+        for file in files where file.pathExtension.lowercased() == "json" && !Self.isBackup(file) {
+            let signature = Self.signature(of: file)
+            guard !ignored.contains(signature) else { continue }
             do {
                 let info = try install(from: file)
                 try? FileManager.default.removeItem(at: file)
                 messages.append("\(info.id) importada.")
             } catch {
+                ignored.insert(signature)
                 messages.append("\(file.lastPathComponent): \(error.localizedDescription)")
             }
         }
+        defaults.set(Array(ignored), forKey: Self.ignoredInboxKey)
         if !messages.isEmpty { inboxMessages = messages }
+    }
+
+    /// Cópia de segurança do próprio app (nome padrão ou conteúdo com "formatVersion" no início).
+    static func isBackup(_ file: URL) -> Bool {
+        if file.lastPathComponent.lowercased().hasPrefix("biblia-backup") { return true }
+        guard let handle = try? FileHandle(forReadingFrom: file) else { return false }
+        defer { try? handle.close() }
+        let head = (try? handle.read(upToCount: 256)) ?? Data()
+        return String(decoding: head, as: UTF8.self).contains("\"formatVersion\"")
+    }
+
+    private static func signature(of file: URL) -> String {
+        let values = try? file.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey])
+        let size = values?.fileSize ?? -1
+        let modified = Int(values?.contentModificationDate?.timeIntervalSince1970 ?? 0)
+        return "\(file.lastPathComponent)|\(size)|\(modified)"
     }
 
     func remove(_ id: String) {
