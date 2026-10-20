@@ -110,9 +110,22 @@ struct VerseRow: View {
             .background(background, in: RoundedRectangle(cornerRadius: 6))
             .padding(.horizontal, -6)
             .contentShape(Rectangle())
-            .accessibilityElement(children: .combine)
-            .accessibilityAddTraits(.isButton)
-            .accessibilityHint("Toque para marcar este versículo")
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Versículo \(number). \(text)")
+            .accessibilityValue(Self.accessibilityState(mark: mark, isSelected: isSelected))
+            .accessibilityAddTraits(isSelected ? [.isButton, .isSelected] : .isButton)
+            .accessibilityHint(isSelected ? "Toque para desmarcar" : "Toque para selecionar e ver as opções")
+    }
+
+    /// O que o VoiceOver diz além do texto: seleção e marcações (que na tela são só visuais).
+    static func accessibilityState(mark: VerseMark?, isSelected: Bool) -> String {
+        var parts: [String] = []
+        if isSelected { parts.append("selecionado") }
+        if let color = mark?.color { parts.append("destaque \(color.label.lowercased())") }
+        if mark?.underline == true { parts.append("sublinhado") }
+        if mark?.saved == true { parts.append("salvo") }
+        if mark?.hasNote == true { parts.append("com nota") }
+        return parts.joined(separator: ", ")
     }
 
     private var content: Text {

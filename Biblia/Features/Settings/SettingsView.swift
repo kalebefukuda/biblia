@@ -114,6 +114,8 @@ struct SettingsView: View {
                     Text("\(Int(fontSize))").monospacedDigit().foregroundStyle(.secondary)
                 }
                 Slider(value: $fontSize, in: ReaderDefaults.fontRange, step: 1)
+                    .accessibilityLabel("Tamanho da letra")
+                    .accessibilityValue("\(Int(fontSize)) pontos")
                 Text("No princípio era o Verbo")
                     .font(.system(size: fontSize, design: .serif))
                     .lineLimit(1)

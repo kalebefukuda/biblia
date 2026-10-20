@@ -38,6 +38,40 @@ struct HeatmapView: View {
             .scrollIndicators(.hidden)
             .defaultScrollAnchor(.trailing)
         }
+        // Um elemento só para o VoiceOver (em vez de 371 quadrados): deslizar para
+        // cima ou para baixo percorre os dias com leitura.
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Mapa de leitura dos últimos 12 meses")
+        .accessibilityValue(accessibilityValue)
+        .accessibilityHint("Deslize para cima ou para baixo para ouvir os dias com leitura")
+        .accessibilityAdjustableAction { direction in
+            selected = Self.step(from: selected, in: readDays, forward: direction == .increment)
+        }
+    }
+
+    private var readDays: [HeatDay] {
+        weeks.flatMap { $0 }.filter { !$0.isFuture && $0.count > 0 }
+    }
+
+    private var accessibilityValue: String {
+        if let selected { return Self.describe(selected) }
+        let days = readDays.count
+        return days == 0 ? "Nenhum dia com leitura" : "\(days) \(days == 1 ? "dia" : "dias") com leitura"
+    }
+
+    static func describe(_ day: HeatDay) -> String {
+        let date = day.date.formatted(.dateTime.day().month(.wide))
+        return "\(date): \(day.count) \(day.count == 1 ? "capítulo" : "capítulos")"
+    }
+
+    /// Próximo (ou anterior) dia com leitura a partir do selecionado.
+    static func step(from current: HeatDay?, in days: [HeatDay], forward: Bool) -> HeatDay? {
+        guard !days.isEmpty else { return nil }
+        guard let current, let index = days.firstIndex(where: { $0.key == current.key }) else {
+            return forward ? days.first : days.last
+        }
+        let next = forward ? index + 1 : index - 1
+        return days.indices.contains(next) ? days[next] : current
     }
 
     private var monthLabels: some View {
@@ -71,7 +105,6 @@ struct HeatmapView: View {
                 guard !day.isFuture else { return }
                 selected = selected?.key == day.key ? nil : day
             }
-            .accessibilityLabel("\(day.date.formatted(date: .long, time: .omitted)): \(day.count) capítulos")
     }
 
     static func color(for level: Int) -> Color {
