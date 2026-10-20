@@ -8,6 +8,17 @@ struct SearchView: View {
     @State private var searching = false
     @State private var hits: [SearchIndex.Hit] = []
     @State private var isSearching = false
+    @State private var scope: Scope = .tudo
+
+    enum Scope: Hashable { case tudo, antigo, novo }
+
+    private var visibleHits: [SearchIndex.Hit] {
+        switch scope {
+        case .tudo: hits
+        case .antigo: hits.filter { $0.ref.book <= 39 }
+        case .novo: hits.filter { $0.ref.book > 39 }
+        }
+    }
 
     private var reference: ParsedReference? { ReferenceParser.parse(query) }
 
@@ -25,8 +36,18 @@ struct SearchView: View {
                     }
                 }
                 if !hits.isEmpty, let text = app.text {
-                    Section(hits.count >= 300 ? "300+ versículos" : "\(hits.count) versículo\(hits.count == 1 ? "" : "s")") {
-                        ForEach(hits) { hit in
+                    Section {
+                        Picker("Testamento", selection: $scope) {
+                            Text("Tudo (\(hits.count))").tag(Scope.tudo)
+                            Text("AT (\(hits.filter { $0.ref.book <= 39 }.count))").tag(Scope.antigo)
+                            Text("NT (\(hits.filter { $0.ref.book > 39 }.count))").tag(Scope.novo)
+                        }
+                        .pickerStyle(.segmented)
+                        .listRowBackground(Color.clear)
+                        .listRowInsets(EdgeInsets())
+                    }
+                    Section("\(visibleHits.count) versículo\(visibleHits.count == 1 ? "" : "s")") {
+                        ForEach(visibleHits) { hit in
                             Button {
                                 open(hit.ref.chapterRef, verse: hit.ref.verse)
                             } label: {
@@ -91,26 +112,24 @@ struct SearchView: View {
         let found = await Task.detached(priority: .userInitiated) { index.search(current) }.value
         guard !Task.isCancelled else { return }
         hits = found
+        scope = .tudo
         isSearching = false
     }
 
-    /// Destaca em negrito os termos encontrados.
+    /// Destaca em negrito os termos encontrados (só no começo de palavra, como a busca).
     private func highlighted(_ verse: String) -> AttributedString {
         var result = AttributedString(verse)
         let folded = SearchIndex.fold(verse)
-        let terms = SearchIndex.fold(query).split(whereSeparator: { !$0.isLetter && !$0.isNumber }).map(String.init).filter { $0.count >= 2 }
         // A dobra de acentos preserva a contagem de caracteres em português, então as posições batem.
         guard folded.count == verse.count else { return result }
-        for term in terms {
-            var searchStart = folded.startIndex
-            while let range = folded.range(of: term, options: .literal, range: searchStart..<folded.endIndex) {
+        for term in SearchIndex.terms(in: query) {
+            for range in SearchIndex.wordStartRanges(of: term, in: folded) {
                 let lower = folded.distance(from: folded.startIndex, to: range.lowerBound)
                 let length = folded.distance(from: range.lowerBound, to: range.upperBound)
                 let start = result.index(result.startIndex, offsetByCharacters: lower)
                 let end = result.index(start, offsetByCharacters: length)
                 result[start..<end].inlinePresentationIntent = .stronglyEmphasized
                 result[start..<end].foregroundColor = .accentColor
-                searchStart = range.upperBound
             }
         }
         return result
