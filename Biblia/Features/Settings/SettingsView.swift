@@ -255,7 +255,7 @@ struct SettingsView: View {
             let url = try result.get()
             let scoped = url.startAccessingSecurityScopedResource()
             defer { if scoped { url.stopAccessingSecurityScopedResource() } }
-            let backup = try BackupService.decode(Data(contentsOf: url))
+            let backup = try BackupService.read(from: url)
             let counts = BackupService.restore(backup, into: context)
             ReadingSync.refresh(BibleStore(context: context))
             message = "Restaurado: \(counts.marks) marcações, \(counts.readings) leituras e \(counts.plans) planos."

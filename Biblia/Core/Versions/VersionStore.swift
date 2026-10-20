@@ -43,10 +43,14 @@ final class VersionStore {
 
         let id = VersionInfo.id(fromFileName: url.lastPathComponent)
         guard !id.isEmpty else { throw VersionImportError.invalidName }
-        if let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > VersionImporter.maxFileSize {
-            throw VersionImportError.tooLarge(bytes: size)
+        let data: Data
+        do {
+            data = try BoundedFile.read(url, maxBytes: VersionImporter.maxFileSize)
+        } catch BoundedFile.ReadError.tooLarge(let bytes) {
+            throw VersionImportError.tooLarge(bytes: bytes)
+        } catch BoundedFile.ReadError.unknownSize {
+            throw VersionImportError.unreadable
         }
-        let data = try Data(contentsOf: url)
         let text = try VersionImporter.parse(data: data, id: id)
 
         let destination = directory.appendingPathComponent("\(id).json")

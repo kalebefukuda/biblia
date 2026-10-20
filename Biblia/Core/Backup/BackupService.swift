@@ -31,13 +31,14 @@ struct Backup: Codable, Equatable {
 }
 
 enum BackupError: LocalizedError {
-    case tooLarge, invalid, unsupportedVersion
+    case tooLarge, invalid, unsupportedVersion, unreadable
 
     var errorDescription: String? {
         switch self {
         case .tooLarge: "O arquivo de cópia é grande demais."
         case .invalid: "Este arquivo não é uma cópia de segurança do app Bíblia."
         case .unsupportedVersion: "Esta cópia foi feita por uma versão mais nova do app."
+        case .unreadable: "Não foi possível ler o arquivo. Se ele está no iCloud Drive, baixe-o antes de restaurar."
         }
     }
 }
@@ -63,6 +64,17 @@ enum BackupService {
         encoder.dateEncodingStrategy = .iso8601
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         return try encoder.encode(backup)
+    }
+
+    /// Lê o arquivo escolhido conferindo o tamanho antes de carregar.
+    static func read(from url: URL) throws -> Backup {
+        do {
+            return try decode(BoundedFile.read(url, maxBytes: maxSize))
+        } catch BoundedFile.ReadError.tooLarge {
+            throw BackupError.tooLarge
+        } catch BoundedFile.ReadError.unknownSize {
+            throw BackupError.unreadable
+        }
     }
 
     static func decode(_ data: Data) throws -> Backup {

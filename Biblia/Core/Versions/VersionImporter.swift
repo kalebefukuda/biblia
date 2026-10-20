@@ -5,6 +5,7 @@ enum VersionImportError: LocalizedError, Equatable {
     case invalidJSON
     case unknownFormat
     case invalidName
+    case unreadable
     case wrongBookCount(found: Int)
     case wrongChapterCount(book: String, expected: Int, found: Int)
     case emptyChapter(book: String, chapter: Int)
@@ -18,6 +19,8 @@ enum VersionImportError: LocalizedError, Equatable {
             "O arquivo não é um JSON válido."
         case .unknownFormat:
             "Formato de JSON não reconhecido. Use uma lista de livros com \"chapters\"."
+        case .unreadable:
+            "Não foi possível ler o arquivo. Se ele está no iCloud Drive, baixe-o antes de importar."
         case .invalidName:
             "Nome de arquivo inválido. Use algo como ARA.json ou NVI.json."
         case .wrongBookCount(let found):
