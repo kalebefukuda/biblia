@@ -21,12 +21,26 @@ struct WidgetTests {
         BibleText(id: "TESTE", name: "Teste", books: TestSupport.syntheticBooks(versesPerChapter: 200))
     }
 
-    @Test func snapshotKeepsRecentHistoryAndAWeekOfVerses() {
+    @Test func snapshotKeepsHistoryAndAWeekOfVerses() {
         let snapshot = ReadingSync.makeSnapshot(counts: sampleCounts(), text: sampleText, previous: .empty, now: now)
-        #expect(snapshot.counts.count < sampleCounts().count)
+        #expect(snapshot.counts == sampleCounts().filter { $0.value > 0 })
         #expect(snapshot.counts[DayKey.from(now)] != nil)
         #expect(snapshot.verses.count == 8)
         #expect(snapshot.verse(for: now)?.versionID == "TESTE")
+    }
+
+    /// Sequência longa: o widget precisa mostrar o mesmo número que o app.
+    @Test func widgetStreakMatchesAppAfterManyDays() {
+        var counts: [String: Int] = [:]
+        for offset in 0..<200 {
+            counts[DayKey.from(Calendar.current.date(byAdding: .day, value: -offset, to: now)!)] = 1
+        }
+        let snapshot = ReadingSync.makeSnapshot(counts: counts, text: nil, previous: .empty, now: now)
+        let widget = ReadingStats(counts: snapshot.counts, today: now)
+        let app = ReadingStats(counts: counts, today: now)
+        #expect(widget.currentStreak == 200)
+        #expect(widget.currentStreak == app.currentStreak)
+        #expect(widget.longestStreak == app.longestStreak)
     }
 
     @Test func snapshotWithoutTextKeepsPreviousVerses() {

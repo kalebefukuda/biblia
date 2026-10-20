@@ -5,9 +5,6 @@ import WidgetKit
 /// Mantém lembretes e widget em dia com as leituras registradas.
 @MainActor
 enum ReadingSync {
-    /// Quantos dias de histórico vão para o widget (o maior mapa mostra 15 semanas).
-    static let widgetHistoryDays = 120
-
     static func refresh(_ store: BibleStore, text: BibleText? = nil) {
         let counts = store.chaptersPerDay()
         let stats = ReadingStats(counts: counts)
@@ -26,10 +23,11 @@ enum ReadingSync {
         WidgetCenter.shared.reloadAllTimelines()
     }
 
-    /// Mantém só o histórico recente e os versículos de hoje até daqui a 7 dias.
+    /// Leva todo o histórico (só dias com leitura: poucos KB por ano), para a
+    /// sequência e o recorde do widget baterem com os do app, e os versículos
+    /// de hoje até daqui a 7 dias.
     static func makeSnapshot(counts: [String: Int], text: BibleText?, previous: WidgetSnapshot, now: Date, calendar: Calendar = .current) -> WidgetSnapshot {
-        let cutoff = calendar.date(byAdding: .day, value: -widgetHistoryDays, to: now).map { DayKey.from($0, calendar: calendar) } ?? ""
-        let recent = counts.filter { $0.key >= cutoff }
+        let history = counts.filter { $0.value > 0 }
 
         var verses = previous.verses
         if let text {
@@ -41,6 +39,6 @@ enum ReadingSync {
                 verses[DayKey.from(day, calendar: calendar)] = WidgetSnapshot.Verse(key: key, title: ref.title, text: verse, versionID: text.id)
             }
         }
-        return WidgetSnapshot(counts: recent, verses: verses, updatedAt: now)
+        return WidgetSnapshot(counts: history, verses: verses, updatedAt: now)
     }
 }
