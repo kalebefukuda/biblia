@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 enum AppTab: Hashable {
@@ -6,6 +7,7 @@ enum AppTab: Hashable {
 
 struct RootView: View {
     @Environment(AppState.self) private var app
+    @Environment(\.modelContext) private var context
     @Environment(\.scenePhase) private var scenePhase
     @AppStorage(ReaderDefaults.themeKey, store: AppGroup.defaults) private var themeRaw = ReaderTheme.sistema.rawValue
 
@@ -15,23 +17,28 @@ struct RootView: View {
             ReaderView()
                 .tabItem { Label("Ler", systemImage: "book") }
                 .tag(AppTab.ler)
-            Text("Planos")
+            PlansView()
                 .tabItem { Label("Planos", systemImage: "calendar") }
                 .tag(AppTab.planos)
-            Text("Salvos")
+            SavedView()
                 .tabItem { Label("Salvos", systemImage: "bookmark") }
                 .tag(AppTab.salvos)
-            Text("Progresso")
+            ProgressScreen()
                 .tabItem { Label("Progresso", systemImage: "square.grid.3x3.fill") }
                 .tag(AppTab.progresso)
-            Text("Ajustes")
+            SettingsView()
                 .tabItem { Label("Ajustes", systemImage: "gearshape") }
                 .tag(AppTab.ajustes)
         }
         .preferredColorScheme(ReaderTheme(rawValue: themeRaw)?.colorScheme)
-        .task { await app.refreshVersions() }
+        .task {
+            app.onReadingChanged = { store in ReadingSync.refresh(store) }
+            await app.refreshVersions()
+        }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active { Task { await app.refreshVersions() } }
+            guard phase == .active else { return }
+            Task { await app.refreshVersions() }
+            ReadingSync.refresh(BibleStore(context: context))
         }
     }
 }
