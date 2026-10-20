@@ -74,20 +74,28 @@ final class AppState {
         await loadCurrentVersion()
     }
 
+    /// Depois de cada espera, confere se a versão pedida ainda é a atual: se o
+    /// usuário trocou de versão no meio da carga, o resultado antigo é descartado.
     func loadCurrentVersion() async {
         guard let id = currentVersionID else {
             text = nil
+            searchIndex = nil
             return
         }
         if text?.id == id { return }
         do {
             let loaded = try await versions.load(id)
+            guard currentVersionID == id else { return }
             text = loaded
             loadError = nil
             searchIndex = nil
-            searchIndex = await Task.detached(priority: .utility) { SearchIndex(text: loaded) }.value
+            let index = await Task.detached(priority: .utility) { SearchIndex(text: loaded) }.value
+            guard currentVersionID == id else { return }
+            searchIndex = index
         } catch {
+            guard currentVersionID == id else { return }
             text = nil
+            searchIndex = nil
             loadError = error.localizedDescription
         }
     }
