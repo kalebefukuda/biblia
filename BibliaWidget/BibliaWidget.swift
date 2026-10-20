@@ -31,7 +31,7 @@ struct StreakWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "BibliaSequencia", provider: SnapshotProvider()) { entry in
             StreakEntryView(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
+                .containerBackground(Color(.systemBackground), for: .widget)
                 .widgetURL(URL(string: "biblia://progresso"))
         }
         .configurationDisplayName("Sequência de leitura")
@@ -53,7 +53,7 @@ struct VerseWidget: Widget {
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: "BibliaVersiculo", provider: SnapshotProvider()) { entry in
             VerseEntryView(entry: entry)
-                .containerBackground(.fill.tertiary, for: .widget)
+                .containerBackground(Color(.systemBackground), for: .widget)
         }
         .configurationDisplayName("Versículo do dia")
         .description("Um versículo novo a cada dia, na versão que você lê.")

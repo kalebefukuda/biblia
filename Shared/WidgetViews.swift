@@ -18,84 +18,138 @@ struct StreakWidgetView: View {
     let date: Date
     let family: WidgetFamily
 
-    private var stats: ReadingStats { ReadingStats(counts: snapshot.counts, today: date) }
-
     var body: some View {
-        let stats = stats
-        if family == .systemSmall {
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(alignment: .firstTextBaseline, spacing: 3) {
-                    Text("\(stats.currentStreak)")
-                        .font(.system(size: 30, weight: .bold, design: .rounded))
-                        .minimumScaleFactor(0.6)
-                    Image(systemName: "flame.fill")
-                        .font(.subheadline)
-                        .foregroundStyle(stats.currentStreak > 0 ? .orange : .secondary)
-                    Spacer(minLength: 0)
-                    Image(systemName: stats.readToday ? "checkmark.circle.fill" : "circle")
-                        .font(.subheadline)
-                        .foregroundStyle(stats.readToday ? Color.brand : .secondary)
-                        .accessibilityLabel(stats.readToday ? "Leu hoje" : "Ainda não leu hoje")
-                }
-                Text(stats.currentStreak == 1 ? "dia seguido" : "dias seguidos")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                Spacer(minLength: 4)
-                MiniHeatmap(weeks: stats.heatmap(weeks: 9), cell: 9.5, spacing: 2.5)
-            }
-        } else {
-            HStack(alignment: .top, spacing: 14) {
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack(alignment: .firstTextBaseline, spacing: 4) {
-                        Text("\(stats.currentStreak)")
-                            .font(.system(size: 40, weight: .bold, design: .rounded))
-                        Image(systemName: "flame.fill")
-                            .foregroundStyle(stats.currentStreak > 0 ? .orange : .secondary)
+        let stats = ReadingStats(counts: snapshot.counts, today: date)
+        Group {
+            if family == .systemSmall {
+                VStack(alignment: .leading, spacing: 10) {
+                    HStack(alignment: .top) {
+                        StreakNumber(stats: stats, size: 34)
+                        Spacer(minLength: 0)
+                        TodayMark(readToday: stats.readToday)
                     }
-                    Text(stats.currentStreak == 1 ? "dia seguido" : "dias seguidos")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Spacer(minLength: 0)
-                    status(stats)
+                    FillingHeatmap(stats: stats, spacing: 2.5)
                 }
-                Spacer(minLength: 0)
-                MiniHeatmap(weeks: stats.heatmap(weeks: 15), cell: 11.5, spacing: 3)
+            } else {
+                HStack(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        StreakNumber(stats: stats, size: 40)
+                        Spacer(minLength: 8)
+                        TodayLabel(readToday: stats.readToday)
+                        Text("Recorde: \(stats.longestStreak) \(stats.longestStreak == 1 ? "dia" : "dias")")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                            .padding(.top, 3)
+                    }
+                    .fixedSize(horizontal: true, vertical: false)
+                    FillingHeatmap(stats: stats, spacing: 3)
+                }
             }
         }
-    }
-
-    private func status(_ stats: ReadingStats) -> some View {
-        Label(stats.readToday ? "Leu hoje" : "Ler hoje", systemImage: stats.readToday ? "checkmark.circle.fill" : "circle")
-            .font(.caption2.weight(.semibold))
-            .foregroundStyle(stats.readToday ? Color.brand : .secondary)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Sequência de \(stats.currentStreak) \(stats.currentStreak == 1 ? "dia" : "dias"). \(stats.readToday ? "Leu hoje." : "Ainda não leu hoje.")")
     }
 }
 
-struct MiniHeatmap: View {
-    let weeks: [[HeatDay]]
-    let cell: CGFloat
-    let spacing: CGFloat
+/// Rótulo pequeno em caixa alta e o número da sequência em destaque.
+private struct StreakNumber: View {
+    let stats: ReadingStats
+    let size: CGFloat
 
     var body: some View {
-        HStack(spacing: spacing) {
-            ForEach(weeks.indices, id: \.self) { column in
-                VStack(spacing: spacing) {
-                    ForEach(weeks[column], id: \.key) { day in
-                        RoundedRectangle(cornerRadius: 2.5, style: .continuous)
-                            .fill(day.isFuture ? Color.clear : Self.color(for: day.level))
-                            .frame(width: cell, height: cell)
+        VStack(alignment: .leading, spacing: 1) {
+            Text("SEQUÊNCIA")
+                .font(.system(size: 9.5, weight: .semibold))
+                .tracking(1.6)
+                .foregroundStyle(.secondary)
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text("\(stats.currentStreak)")
+                    .font(.system(size: size, weight: .bold, design: .rounded))
+                    .tracking(-size * 0.035)
+                    .minimumScaleFactor(0.6)
+                Text(stats.currentStreak == 1 ? "dia" : "dias")
+                    .font(.system(size: size * 0.36, weight: .semibold))
+                    .foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+private struct TodayMark: View {
+    let readToday: Bool
+
+    var body: some View {
+        Image(systemName: readToday ? "checkmark.circle.fill" : "circle.dashed")
+            .font(.system(size: 18, weight: .semibold))
+            .foregroundStyle(readToday ? Color.brand : .secondary)
+            .widgetAccentable()
+    }
+}
+
+private struct TodayLabel: View {
+    let readToday: Bool
+
+    var body: some View {
+        Label(readToday ? "Leu hoje" : "Ler hoje", systemImage: readToday ? "checkmark.circle.fill" : "circle.dashed")
+            .font(.caption.weight(.semibold))
+            .foregroundStyle(readToday ? Color.brand : .secondary)
+            .widgetAccentable()
+    }
+}
+
+/// Mapa estilo GitHub que ocupa todo o espaço disponível: a altura define o
+/// tamanho do quadrado (7 dias) e a largura define quantas semanas cabem.
+struct FillingHeatmap: View {
+    let stats: ReadingStats
+    var spacing: CGFloat = 3
+
+    var body: some View {
+        GeometryReader { geo in
+            let cell = max(4, (geo.size.height - spacing * 6) / 7)
+            let columns = max(1, Int((geo.size.width + spacing) / (cell + spacing)))
+            let columnSpacing = columns > 1 ? (geo.size.width - CGFloat(columns) * cell) / CGFloat(columns - 1) : 0
+            let weeks = stats.heatmap(weeks: columns)
+            HStack(alignment: .top, spacing: columnSpacing) {
+                ForEach(weeks.indices, id: \.self) { column in
+                    VStack(spacing: spacing) {
+                        ForEach(weeks[column], id: \.key) { day in
+                            HeatCell(day: day, size: cell)
+                        }
                     }
                 }
             }
         }
     }
+}
 
+private struct HeatCell: View {
+    let day: HeatDay
+    let size: CGFloat
+
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: size * 0.26, style: .continuous)
+        Group {
+            if day.isFuture {
+                Color.clear
+            } else if day.level > 0 {
+                shape.fill(MiniHeatmap.color(for: day.level)).widgetAccentable()
+            } else {
+                shape.fill(MiniHeatmap.color(for: 0))
+                    .overlay { if day.isToday { shape.strokeBorder(Color.secondary.opacity(0.6), lineWidth: 1) } }
+            }
+        }
+        .frame(width: size, height: size)
+    }
+}
+
+/// Paleta do mapa (também usada pelo app).
+enum MiniHeatmap {
     static func color(for level: Int) -> Color {
         switch level {
-        case 0: Color.primary.opacity(0.09)
-        case 1: Color.brand.opacity(0.38)
-        case 2: Color.brand.opacity(0.58)
-        case 3: Color.brand.opacity(0.8)
+        case 0: Color.primary.opacity(0.08)
+        case 1: Color.brand.opacity(0.35)
+        case 2: Color.brand.opacity(0.55)
+        case 3: Color.brand.opacity(0.78)
         default: Color.brand
         }
     }

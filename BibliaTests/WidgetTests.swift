@@ -60,7 +60,7 @@ struct WidgetTests {
         ]
         let dir = ProcessInfo.processInfo.environment["WIDGET_RENDER_DIR"].map(URL.init(fileURLWithPath:))
         for (name, view, size) in views {
-            let renderer = ImageRenderer(content: view.padding(16).frame(width: size.width, height: size.height).background(Color(.secondarySystemBackground)))
+            let renderer = ImageRenderer(content: view.padding(16).frame(width: size.width, height: size.height).background(Color(.systemBackground)))
             renderer.scale = 2
             let image = try #require(renderer.uiImage, "\(name) não renderizou")
             #expect(image.size.width > 0)
