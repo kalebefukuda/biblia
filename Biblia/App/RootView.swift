@@ -5,11 +5,14 @@ enum AppTab: Hashable {
 }
 
 struct RootView: View {
-    @State private var tab: AppTab = .ler
+    @Environment(AppState.self) private var app
+    @Environment(\.scenePhase) private var scenePhase
+    @AppStorage(ReaderDefaults.themeKey, store: AppGroup.defaults) private var themeRaw = ReaderTheme.sistema.rawValue
 
     var body: some View {
-        TabView(selection: $tab) {
-            Text("Ler")
+        @Bindable var app = app
+        TabView(selection: $app.tab) {
+            ReaderView()
                 .tabItem { Label("Ler", systemImage: "book") }
                 .tag(AppTab.ler)
             Text("Planos")
@@ -24,6 +27,11 @@ struct RootView: View {
             Text("Ajustes")
                 .tabItem { Label("Ajustes", systemImage: "gearshape") }
                 .tag(AppTab.ajustes)
+        }
+        .preferredColorScheme(ReaderTheme(rawValue: themeRaw)?.colorScheme)
+        .task { await app.refreshVersions() }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active { Task { await app.refreshVersions() } }
         }
     }
 }
